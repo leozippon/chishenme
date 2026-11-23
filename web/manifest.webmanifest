@@ -1,0 +1,13 @@
+{
+  "name": "吃什么",
+  "short_name": "吃什么",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#f4efe6",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

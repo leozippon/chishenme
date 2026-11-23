@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4efe6">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="吃什么">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>
+try {
+  var pref = localStorage.getItem('chishenme-theme') || 'auto';
+  var dark = pref === 'dark' || (pref !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#171410' : '#f4efe6');
+} catch (error) {}
+</script>
+<title>吃什么</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="boot" class="boot" role="status">正在打开</div>
+
+<section id="login" class="login" hidden>
+  <form id="login-form" class="login-card" autocomplete="on">
+    <img src="/icon.svg" alt="" width="72" height="72">
+    <h1>吃什么</h1>
+    <p class="login-lead">记下这一周的菜，和家里还剩的食材。</p>
+    <label class="field">用户名
+      <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    </label>
+    <label class="field">密码
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <p id="login-error" class="sheet-error" hidden></p>
+    <button class="btn primary" type="submit">登录</button>
+  </form>
+</section>
+
+<div id="app" class="app" hidden>
+  <main id="view" class="view"></main>
+  <nav class="tabs" aria-label="页面">
+    <button type="button" class="tab" data-action="tab" data-tab="week">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v3M16 3.5v3M4 10h16"/></svg>
+      本周
+    </button>
+    <button type="button" class="tab" data-action="tab" data-tab="shop">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 11H7L6 8z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/></svg>
+      采购<span id="shop-badge" class="badge" hidden></span>
+    </button>
+    <button type="button" class="tab" data-action="tab" data-tab="pantry">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      家里
+    </button>
+  </nav>
+</div>
+
+<div id="sheet" class="sheet" hidden></div>
+<div id="toast" class="toast" hidden role="status"></div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

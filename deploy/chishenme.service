@@ -1,0 +1,29 @@
+[Unit]
+Description=Chishenme weekly meals
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=chishenme
+Group=chishenme
+WorkingDirectory=/var/lib/chishenme
+EnvironmentFile=/etc/chishenme/env
+Environment=TZ=Asia/Shanghai
+ExecStart=/usr/local/bin/chishenme
+Restart=on-failure
+RestartSec=2s
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/chishenme
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

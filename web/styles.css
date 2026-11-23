@@ -193,6 +193,7 @@ html[data-theme="dark"] .tick.on::after { border-color: #173024; }
 
 .empty { color: var(--muted); margin: 8px 0 16px; }
 .stack { display: grid; gap: 10px; }
+.recipe-list { margin-top: 12px; }
 
 .tabs {
   position: fixed;
@@ -201,7 +202,7 @@ html[data-theme="dark"] .tick.on::after { border-color: #173024; }
   transform: translateX(-50%);
   width: min(480px, 100%);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--line);

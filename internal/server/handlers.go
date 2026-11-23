@@ -58,6 +58,57 @@ func (s *Server) deleteDish(w http.ResponseWriter, r *http.Request, _ store.User
 	writeOK(w)
 }
 
+func (s *Server) cookbook(w http.ResponseWriter, _ *http.Request, _ store.User) {
+	recipes, err := s.store.Recipes()
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, recipes)
+}
+
+func (s *Server) saveRecipe(w http.ResponseWriter, r *http.Request, _ store.User) {
+	var in store.RecipeInput
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	recipe, err := s.store.SaveRecipe(in)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, recipe)
+}
+
+func (s *Server) updateRecipe(w http.ResponseWriter, r *http.Request, _ store.User) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	var in store.RecipeInput
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	recipe, err := s.store.UpdateRecipe(id, in)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, recipe)
+}
+
+func (s *Server) deleteRecipe(w http.ResponseWriter, r *http.Request, _ store.User) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if err := s.store.DeleteRecipe(id); err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeOK(w)
+}
+
 func (s *Server) pantry(w http.ResponseWriter, _ *http.Request, _ store.User) {
 	items, err := s.store.Pantry()
 	if err != nil {

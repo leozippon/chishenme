@@ -146,6 +146,52 @@ func TestReadyMergesAndDeleteKeepsPantry(t *testing.T) {
 	}
 }
 
+func TestRecipeKeepsADishCopy(t *testing.T) {
+	s := openTest(t)
+	saved, err := s.SaveRecipe(RecipeInput{
+		Name: "番茄炒蛋", Servings: "2人", Steps: "先炒蛋",
+		Ingredients: []IngredientInput{
+			{Name: "番茄", Amount: 100, Unit: "g"},
+			{Name: "番茄", Amount: 200, Unit: "克", Ready: true},
+			{Name: "鸡蛋", Amount: 2, Unit: "个", Ready: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Ingredients) != 2 || saved.Ingredients[0].Amount != 300 || saved.Ingredients[0].Ready {
+		t.Fatalf("recipe should merge the tomato and forget ready: %+v", saved.Ingredients)
+	}
+	again, err := s.SaveRecipe(RecipeInput{Name: "番茄炒蛋", Servings: "3人", Ingredients: []IngredientInput{{Name: "鸡蛋", Amount: 3, Unit: "个"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.ID != saved.ID || again.Servings != "3人" || len(again.Ingredients) != 1 {
+		t.Fatalf("same name should replace the recipe: %+v", again)
+	}
+	list, err := s.Recipes()
+	if err != nil || len(list) != 1 || list[0].Ingredients[0].Name != "鸡蛋" {
+		t.Fatalf("list = %+v %v", list, err)
+	}
+	if _, err := s.UpdateRecipe(saved.ID, RecipeInput{Name: "番茄炒蛋", Servings: "2人"}); err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.SaveRecipe(RecipeInput{Name: "青菜汤"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateRecipe(other.ID, RecipeInput{Name: "番茄炒蛋"}); err == nil {
+		t.Fatal("renaming onto an existing recipe should fail")
+	}
+	if err := s.DeleteRecipe(other.ID); err != nil {
+		t.Fatal(err)
+	}
+	list, _ = s.Recipes()
+	if len(list) != 1 {
+		t.Fatalf("after delete = %+v", list)
+	}
+}
+
 func TestRejectsBadInput(t *testing.T) {
 	s := openTest(t)
 	_, err := s.CreateDish(DishInput{Day: "2026-02-31", Slot: "晚", Name: "汤"})

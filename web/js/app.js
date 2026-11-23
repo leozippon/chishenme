@@ -7,6 +7,7 @@ const state = {
   selected: todayISO(),
   dishes: [],
   pantry: [],
+  recipes: [],
 }
 
 document.addEventListener('click', onClick)
@@ -41,12 +42,14 @@ function showApp() {
 
 async function reload() {
   const to = addDays(state.from, 6)
-  const [week, pantry] = await Promise.all([
+  const [week, pantry, recipes] = await Promise.all([
     api('/api/week?from=' + state.from + '&to=' + to),
     api('/api/pantry'),
+    api('/api/cookbook'),
   ])
   state.dishes = week.dishes || []
   state.pantry = pantry || []
+  state.recipes = recipes || []
   if (state.selected < state.from || state.selected > to) state.selected = state.from
   render()
 }
@@ -61,7 +64,8 @@ function render() {
   }
   if (state.tab === 'week') renderWeek()
   else if (state.tab === 'shop') renderShop(groups)
-  else renderPantry()
+  else if (state.tab === 'pantry') renderPantry()
+  else renderRecipes()
 }
 
 function renderWeek() {
@@ -123,6 +127,7 @@ function dishCard(dish) {
       </div>`).join('')}
     <div class="dish-actions">
       <button type="button" class="text-btn" data-action="allocate" data-id="${dish.id}">从家里放入</button>
+      <button type="button" class="text-btn" data-action="save-recipe" data-id="${dish.id}">存成菜谱</button>
       <button type="button" class="text-btn" data-action="delete-dish" data-id="${dish.id}">删除</button>
     </div>
   </article>`
@@ -183,6 +188,34 @@ function renderPantry() {
     ${rows}`
 }
 
+function renderRecipes() {
+  const rows = state.recipes.length
+    ? state.recipes.map((recipe) => `
+      <article class="dish">
+        <div class="dish-h">
+          <h3>${esc(recipe.name)}</h3>
+          <button type="button" class="text-btn" data-action="edit-recipe" data-id="${recipe.id}">编辑</button>
+        </div>
+        ${recipe.servings ? `<p class="muted">${esc(recipe.servings)}</p>` : ''}
+        ${recipe.steps ? `<p class="steps">${esc(recipe.steps)}</p>` : ''}
+        <ul class="menu">${(recipe.ingredients || []).map((item) => `<li>${esc(item.name)} ${item.amount} ${unitLabel(item.unit)}</li>`).join('')}</ul>
+        <div class="dish-actions">
+          <button type="button" class="text-btn" data-action="delete-recipe" data-id="${recipe.id}">删除</button>
+        </div>
+      </article>`).join('')
+    : `<p class="empty">还没有菜谱。写一份，或在某一道菜上点「存成菜谱」。</p>`
+  view().innerHTML = `
+    <div class="top">
+      <div>
+        <h1 class="title">菜谱</h1>
+        <p class="sub">存下来的做法。排菜时可以整份导入。</p>
+      </div>
+      <button type="button" class="icon-btn" data-action="settings" aria-label="设置">⚙</button>
+    </div>
+    <button type="button" class="btn primary" data-action="add-recipe">新菜谱</button>
+    <div class="stack recipe-list">${rows}</div>`
+}
+
 function onClick(event) {
   const node = event.target.closest('[data-action]')
   if (!node) return
@@ -195,6 +228,12 @@ function onClick(event) {
   else if (action === 'settings') openSettings()
   else if (action === 'add-dish') openDish(null, node.dataset.day, node.dataset.slot)
   else if (action === 'edit-dish') openDish(dishById(node.dataset.id))
+  else if (action === 'save-recipe') saveDishAsRecipe(node.dataset.id)
+  else if (action === 'add-recipe') openRecipe(null)
+  else if (action === 'edit-recipe') openRecipe(recipeById(node.dataset.id))
+  else if (action === 'delete-recipe') confirmDeleteRecipe(node.dataset.id)
+  else if (action === 'pick-recipe') showRecipePicker()
+  else if (action === 'use-recipe') applyRecipe(node.dataset.id)
   else if (action === 'delete-dish') confirmDeleteDish(node.dataset.id)
   else if (action === 'toggle') toggle(node.dataset.id)
   else if (action === 'allocate') openAllocate(dishById(node.dataset.id))
@@ -204,7 +243,7 @@ function onClick(event) {
   else if (action === 'delete-pantry') confirmDeletePantry(node.dataset.id)
   else if (action === 'buy') buy(node.dataset.ids)
   else if (action === 'generate') generate(node)
-  else if (action === 'add-ing') $('#ing-list')?.insertAdjacentHTML('beforeend', ingRow())
+  else if (action === 'add-ing') $('#ing-list')?.insertAdjacentHTML('beforeend', ingRow({}, !document.getElementById('recipe-form')))
   else if (action === 'remove-ing') node.closest('.ing-edit')?.remove()
   else if (action === 'confirm') runConfirm()
   else if (action === 'theme') setTheme(node.dataset.theme)
@@ -215,6 +254,7 @@ function onSubmit(event) {
   const form = event.target
   if (form.id === 'login-form') { event.preventDefault(); login(form) }
   else if (form.id === 'dish-form') { event.preventDefault(); saveDish(form) }
+  else if (form.id === 'recipe-form') { event.preventDefault(); saveRecipe(form) }
   else if (form.id === 'pantry-form') { event.preventDefault(); addPantry(form) }
   else if (form.id === 'pantry-edit') { event.preventDefault(); savePantry(form) }
   else if (form.id === 'return-form') { event.preventDefault(); sendReturn(form) }
@@ -266,6 +306,8 @@ function dishForm(dish, day, slot) {
     <div class="segment">${['早', '午', '晚'].map((item) => `
       <label class="seg"><input type="radio" name="slot" value="${item}" ${(dish?.slot || slot) === item ? 'checked' : ''}>${slotName(item)}</label>`).join('')}</div>
     <label class="field">菜名<input name="name" required maxlength="24" value="${esc(dish?.name || '')}" placeholder="例如 番茄炒蛋"></label>
+    <button type="button" class="btn" data-action="pick-recipe">从菜谱导入</button>
+    <div id="recipe-pick" hidden></div>
     ${recipe}
     <label class="field">几人份<input name="servings" maxlength="16" value="${esc(dish?.servings || '')}" placeholder="2人"></label>
     <label class="field">做法<textarea name="steps" maxlength="800">${esc(dish?.steps || '')}</textarea></label>
@@ -276,14 +318,138 @@ function dishForm(dish, day, slot) {
   </form>`
 }
 
-function ingRow(item = {}) {
+function ingRow(item = {}, withReady = true) {
+  const ready = withReady
+    ? `<label class="checkline"><input class="ing-ready" type="checkbox" ${item.ready ? 'checked' : ''}>已有</label>`
+    : ''
   return `<div class="ing-edit">
     <input class="ing-name" aria-label="食材名" maxlength="20" placeholder="食材" value="${esc(item.name || '')}">
     <input class="ing-amount" aria-label="份量" inputmode="numeric" placeholder="份量" value="${item.amount ?? ''}">
     <select class="ing-unit" aria-label="单位">${unitOptions(item.unit || 'g')}</select>
-    <label class="checkline"><input class="ing-ready" type="checkbox" ${item.ready ? 'checked' : ''}>已有</label>
+    ${ready}
     <button type="button" class="text-btn" data-action="remove-ing">移除</button>
   </div>`
+}
+
+function readIngredients(form) {
+  const ingredients = []
+  for (const row of form.querySelectorAll('.ing-edit')) {
+    const name = row.querySelector('.ing-name').value.trim()
+    const amountText = row.querySelector('.ing-amount').value.trim()
+    if (!name && !amountText) continue
+    const amount = Number(amountText)
+    if (!name || !Number.isInteger(amount) || amount < 1) {
+      sheetError('每样食材都要有名字，份量是正整数')
+      return null
+    }
+    const ready = row.querySelector('.ing-ready')
+    ingredients.push({
+      name,
+      amount,
+      unit: row.querySelector('.ing-unit').value,
+      ready: ready ? ready.checked : false,
+    })
+  }
+  return ingredients
+}
+
+function showRecipePicker() {
+  const box = document.getElementById('recipe-pick')
+  if (!box) return
+  if (!state.recipes.length) {
+    sheetError('还没有菜谱。可以先在「菜谱」里写一份，或把一道菜存下来。')
+    return
+  }
+  sheetError('')
+  box.hidden = false
+  box.innerHTML = state.recipes.map((recipe) => `
+    <button type="button" class="choice" data-action="use-recipe" data-id="${recipe.id}">${esc(recipe.name)}</button>`).join('')
+}
+
+function applyRecipe(id) {
+  const recipe = recipeById(id)
+  const form = document.getElementById('dish-form')
+  if (!recipe || !form) return
+  form.elements.namedItem('name').value = recipe.name
+  form.elements.namedItem('servings').value = recipe.servings || ''
+  form.elements.namedItem('steps').value = recipe.steps || ''
+  const list = document.getElementById('ing-list')
+  list.innerHTML = (recipe.ingredients || []).map((item) => ingRow(item)).join('') || ingRow()
+  const box = document.getElementById('recipe-pick')
+  if (box) box.hidden = true
+  sheetError('')
+  toast('已填上这道菜谱，确认后保存')
+}
+
+function openRecipe(recipe) {
+  openSheet(recipe ? '编辑菜谱' : '新菜谱', recipeForm(recipe))
+}
+
+function recipeForm(recipe) {
+  const items = recipe?.ingredients?.length ? recipe.ingredients : [null]
+  return `<form id="recipe-form" data-id="${recipe ? recipe.id : ''}">
+    <label class="field">菜名<input name="name" required maxlength="24" value="${esc(recipe?.name || '')}" placeholder="例如 番茄炒蛋"></label>
+    <label class="field">几人份<input name="servings" maxlength="16" value="${esc(recipe?.servings || '')}" placeholder="2人"></label>
+    <label class="field">做法<textarea name="steps" maxlength="800">${esc(recipe?.steps || '')}</textarea></label>
+    <div class="ing-list" id="ing-list">${items.map((item) => ingRow(item || {}, false)).join('')}</div>
+    <button type="button" class="btn quiet" data-action="add-ing">再加一项食材</button>
+    <p class="hint">同名再存一次会换成这一份。导入到某一天时，食材都先算还要买。</p>
+    <p class="sheet-error" hidden></p>
+    <button class="btn primary" type="submit">保存</button>
+  </form>`
+}
+
+async function saveRecipe(form) {
+  const ingredients = readIngredients(form)
+  if (!ingredients) return
+  const body = {
+    name: formValue(form, 'name'),
+    servings: formValue(form, 'servings'),
+    steps: formValue(form, 'steps'),
+    ingredients,
+  }
+  const id = form.dataset.id
+  try {
+    await api(id ? '/api/cookbook/' + id : '/api/cookbook', { method: id ? 'PUT' : 'POST', body })
+    closeSheet()
+    state.tab = 'recipes'
+    await reload()
+    toast('已存进菜谱')
+  } catch (err) {
+    sheetError(err.message)
+  }
+}
+
+async function saveDishAsRecipe(id) {
+  const dish = dishById(id)
+  if (!dish) return
+  try {
+    await api('/api/cookbook', {
+      method: 'POST',
+      body: {
+        name: dish.name,
+        servings: dish.servings,
+        steps: dish.steps,
+        ingredients: (dish.ingredients || []).map((item) => ({ name: item.name, amount: item.amount, unit: item.unit })),
+      },
+    })
+    state.recipes = await api('/api/cookbook')
+    toast('已存进菜谱')
+  } catch (err) { fail(err) }
+}
+
+function confirmDeleteRecipe(id) {
+  const recipe = recipeById(id)
+  if (!recipe) return
+  ask('删除菜谱', `删除「${recipe.name}」。已经排进某一天的菜不会一起消失。`, '删除', async () => {
+    await api('/api/cookbook/' + id, { method: 'DELETE' })
+    await reload()
+    toast('已删除')
+  })
+}
+
+function recipeById(id) {
+  return state.recipes.find((recipe) => String(recipe.id) === String(id))
 }
 
 async function generate(button) {
@@ -312,23 +478,8 @@ async function generate(button) {
 }
 
 async function saveDish(form) {
-  const ingredients = []
-  for (const row of form.querySelectorAll('.ing-edit')) {
-    const name = row.querySelector('.ing-name').value.trim()
-    const amountText = row.querySelector('.ing-amount').value.trim()
-    if (!name && !amountText) continue
-    const amount = Number(amountText)
-    if (!name || !Number.isInteger(amount) || amount < 1) {
-      sheetError('每样食材都要有名字，份量是正整数')
-      return
-    }
-    ingredients.push({
-      name,
-      amount,
-      unit: row.querySelector('.ing-unit').value,
-      ready: row.querySelector('.ing-ready').checked,
-    })
-  }
+  const ingredients = readIngredients(form)
+  if (!ingredients) return
   const body = {
     day: formValue(form, 'day'),
     slot: formValue(form, 'slot'),

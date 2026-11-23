@@ -60,6 +60,11 @@ func New(st *store.Store, cfg Config) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/pantry/{id}", s.guard(s.updatePantry))
 	mux.HandleFunc("DELETE /api/pantry/{id}", s.guard(s.deletePantry))
 
+	mux.HandleFunc("GET /api/cookbook", s.guard(s.cookbook))
+	mux.HandleFunc("POST /api/cookbook", s.guard(s.saveRecipe))
+	mux.HandleFunc("PUT /api/cookbook/{id}", s.guard(s.updateRecipe))
+	mux.HandleFunc("DELETE /api/cookbook/{id}", s.guard(s.deleteRecipe))
+
 	mux.HandleFunc("POST /api/allocate", s.guard(s.allocate))
 	mux.HandleFunc("POST /api/return", s.guard(s.returnToPantry))
 	mux.HandleFunc("POST /api/ingredients/ready", s.guard(s.setReady))

@@ -165,6 +165,21 @@ func (s *Store) migrate() error {
 		);
 		CREATE INDEX IF NOT EXISTS idx_dishes_day ON dishes(day);
 		CREATE INDEX IF NOT EXISTS idx_ingredients_dish ON ingredients(dish_id);
+		CREATE TABLE IF NOT EXISTS recipes (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			steps TEXT NOT NULL DEFAULT '',
+			servings TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS recipe_ingredients (
+			id INTEGER PRIMARY KEY,
+			recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			amount INTEGER NOT NULL CHECK (amount > 0),
+			unit TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe ON recipe_ingredients(recipe_id);
 	`)
 	if err != nil {
 		return fmt.Errorf("migrate: %w", err)
